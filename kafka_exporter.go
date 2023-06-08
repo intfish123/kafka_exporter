@@ -916,6 +916,11 @@ func setup(
 		sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 	}
 
+	err = RegisterInstance(nacosOpts)
+	if err != nil {
+		klog.Error(err)
+	}
+
 	exporter, err := NewExporter(opts, topicFilter, topicExclude, groupFilter, groupExclude)
 	if err != nil {
 		klog.Fatalln(err)
