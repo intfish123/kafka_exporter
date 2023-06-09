@@ -387,6 +387,7 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 	}
 
 	offset := make(map[string]map[int32]int64)
+	oldOffset := make(map[string]map[int32]int64)
 
 	now := time.Now()
 
@@ -425,6 +426,7 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 		)
 		e.mu.Lock()
 		offset[topic] = make(map[int32]int64, len(partitions))
+		oldOffset[topic] = make(map[int32]int64, len(partitions))
 		e.mu.Unlock()
 		for _, partition := range partitions {
 			broker, err := e.client.Leader(topic, partition)
@@ -452,6 +454,9 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 			if err != nil {
 				klog.Errorf("Cannot get oldest offset of topic %s partition %d: %v", topic, partition, err)
 			} else {
+				e.mu.Lock()
+				oldOffset[topic][partition] = oldestOffset
+				e.mu.Unlock()
 				ch <- prometheus.MustNewConstMetric(
 					topicOldestOffset, prometheus.GaugeValue, float64(oldestOffset), topic, strconv.FormatInt(int64(partition), 10),
 				)
@@ -645,8 +650,17 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 						if offsetFetchResponseBlock.Offset == -1 {
 							lag = -1
 						} else {
-							lag = offset - offsetFetchResponseBlock.Offset
-							lagSum += lag
+							if oldestOffset, ok2 := oldOffset[topic][partition]; ok2 {
+								if offsetFetchResponseBlock.Offset >= oldestOffset {
+									lag = offset - offsetFetchResponseBlock.Offset
+									lagSum += lag
+								} else {
+									lag = -1
+								}
+							} else {
+								lag = offset - offsetFetchResponseBlock.Offset
+								lagSum += lag
+							}
 						}
 						ch <- prometheus.MustNewConstMetric(
 							consumergroupLag, prometheus.GaugeValue, float64(lag), group.GroupId, topic, strconv.FormatInt(int64(partition), 10),
