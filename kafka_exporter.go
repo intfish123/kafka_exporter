@@ -655,6 +655,7 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 									lag = offset - offsetFetchResponseBlock.Offset
 									lagSum += lag
 								} else {
+									// If current offset < oldestOffset, forcing lag to -1
 									lag = -1
 								}
 							} else {
