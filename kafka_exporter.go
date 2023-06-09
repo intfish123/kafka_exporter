@@ -387,7 +387,7 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 	}
 
 	offset := make(map[string]map[int32]int64)
-	oldOffset := make(map[string]map[int32]int64)
+	tpOldestOffset := make(map[string]map[int32]int64)
 
 	now := time.Now()
 
@@ -426,7 +426,7 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 		)
 		e.mu.Lock()
 		offset[topic] = make(map[int32]int64, len(partitions))
-		oldOffset[topic] = make(map[int32]int64, len(partitions))
+		tpOldestOffset[topic] = make(map[int32]int64, len(partitions))
 		e.mu.Unlock()
 		for _, partition := range partitions {
 			broker, err := e.client.Leader(topic, partition)
@@ -455,7 +455,7 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 				klog.Errorf("Cannot get oldest offset of topic %s partition %d: %v", topic, partition, err)
 			} else {
 				e.mu.Lock()
-				oldOffset[topic][partition] = oldestOffset
+				tpOldestOffset[topic][partition] = oldestOffset
 				e.mu.Unlock()
 				ch <- prometheus.MustNewConstMetric(
 					topicOldestOffset, prometheus.GaugeValue, float64(oldestOffset), topic, strconv.FormatInt(int64(partition), 10),
@@ -650,7 +650,7 @@ func (e *Exporter) collect(ch chan<- prometheus.Metric) {
 						if offsetFetchResponseBlock.Offset == -1 {
 							lag = -1
 						} else {
-							if oldestOffset, ok2 := oldOffset[topic][partition]; ok2 {
+							if oldestOffset, ok2 := tpOldestOffset[topic][partition]; ok2 {
 								if offsetFetchResponseBlock.Offset >= oldestOffset {
 									lag = offset - offsetFetchResponseBlock.Offset
 									lagSum += lag
@@ -786,8 +786,8 @@ func main() {
 	// nacos opts
 	toFlagStringVar("nacos.addr", "nacos server address", "", &nacosOpts.addr)
 	toFlagIntVar("nacos.port", "nacos server port", 8848, "8848", &nacosOpts.port)
-	toFlagStringVar("nacos.namesapceId", "nacos server namesapceId", "", &nacosOpts.namesapceId)
-	toFlagStringVar("nacos.serviceName", "service name to register nacos", "", &nacosOpts.serviceName)
+	toFlagStringVar("nacos.namesapce-id", "nacos server namesapce id", "", &nacosOpts.namesapceId)
+	toFlagStringVar("nacos.service-name", "service name to register nacos", "", &nacosOpts.serviceName)
 
 	plConfig := plog.Config{}
 	plogflag.AddFlags(kingpin.CommandLine, &plConfig)
@@ -1016,7 +1016,7 @@ func setup(
 func RegisterInstance(opts NacosOpts) error {
 	// 注册服务
 	if opts.addr == "" || opts.port == 0 || opts.serviceName == "" {
-		klog.Infof("service discovery config is empty, ignore")
+		klog.V(INFO).Infof("service discovery config is empty, ignore")
 		return nil
 	}
 
@@ -1067,6 +1067,6 @@ func RegisterInstance(opts NacosOpts) error {
 	if err != nil {
 		return err
 	}
-	klog.Infof("service discovery resp: %v, register %v@%v on ns %v to %v:%v", success, serviceName, pv4.To4().String(), serviceNs, serverIp, serverPort)
+	klog.V(INFO).Infof("service discovery resp: %v, register %v@%v on ns %v to %v:%v", success, serviceName, pv4.To4().String(), serviceNs, serverIp, serverPort)
 	return nil
 }

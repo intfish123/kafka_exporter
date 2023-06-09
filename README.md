@@ -133,8 +133,8 @@ This image is configurable using different flags
 | verbosity                      | 0              | Verbosity log level                                                                                                                            |
 | nacos.addr                     |                | nacos server address                                                                                                                           |
 | nacos.port                     | 8848           | nacos server port                                                                                                                              |
-| nacos.namesapceId              | public         | nacos namespace id                                                                                                                             |
-| nacos.serviceName              |                | service name that register to nacos                                                                                                            |
+| nacos.namesapce-id             | public         | nacos namespace id                                                                                                                             |
+| nacos.service-name             |                | service name that register to nacos                                                                                                            |
 
 ### Notes
 
